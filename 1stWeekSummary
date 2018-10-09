@@ -1,0 +1,223 @@
+# コンテナの作成およびAWSを用いてネットワークにコンテナの整備までを行った
+
+## １：初期設定をする。
+
+    １：chocolateyをコマンドプロンプトでダウンロードする。
+        サイトでダウンロードして環境を作ることはできるが、こっちのほうが楽（以下コマンドプロンプトでしています）
+
+    ２：cygwinをダウンロードする。
+       コマンドプロンプトでchoco install cygwin でできる。
+
+    ３：Docker-toolboxをダウンロードする。
+        同上を同じ方法でできる。
+        virtualBoxが入っていないとき一緒にダウロードするかもしれないので、しっかりとダウンロードを行う。
+
+    ４：nginxをダウンロードする
+        これはリーバスプロキシで使うもの。
+                リバースプロキシは動的にサーバの負荷分散を行う。
+
+## ２：コンテナの作成と起動
+
+    １：Docker-toolboxを起動する。
+
+    ２：YMLファイルで、コンテナの名前、設定やイメージを記述する
+        インデントごとで解釈しているのでしっかり、インデントはそろえる。
+        ファイルの記述できる事は色々あるので自分で調べて記述する。
+        ファイル名は基本　docker-compose にする。（後の起動で面倒なことが起こる）
+
+    ３：configを作る
+        サーバの受け取りポートやサーバ名どこに送り返すかなどを記述する
+        これもネットで調べて記述する。
+        ファイル名は基本  default.conf にする。
+
+    ４：Deckerfileを作成する。
+        nginxを使うのでそのときに使うもの
+        何でここに一回経由するのかわからないが、おそらくリーバスプロキシに関係あると思います。
+        これも記述は調べて記述する。（今回のインターンは　
+
+        FROM nginx
+        COPY ./default.conf /etc/nginx/conf.d/default.conf 
+        
+        の二行を記述している）
+
+        Dockerfileで保存（拡張子なし）
+        Winだと拡張子がついてきてしまうので、 mv 作ったもののパス　/保存先/Dockerfile　で変更できるはず。
+
+    ５：２～４のディレクトリを合わせる（保存するときにしたほうが楽）
+        （ファイル）
+            -ngnix
+                -Dockerfile
+                -default.conf
+            -docker-compose.yml
+
+        で、合わせてください
+
+    ６：Cygwinを使い、docker-machine を作成する
+        (これから先cygwinを使用します)
+        コマンドは　docker-machine create --driver virtualbox [マシン名]
+
+    ７：docker-machine の設定を環境変数にする
+        コマンドは　eval $(docker-machine env) 
+
+    ８：ディレクトリを合わせて　docker-compose up -d をする
+            CygwinはLinux Likeのコマンドプロンプトみたいなものです
+            実行時のディレクトリは docker-compose.yml　の保存先にする。
+
+            ここでdocker-compose.yml出ない場合はup以降にそのファイル名を書く
+            （デフォルトでdocker-compose.ymlになっているため省略できる)
+
+        これはymlファイル内で記述したサービスをすべてRUNしています。
+        本来コンテナを立てるときは docker run ....　で記述するのですが、長いしめんどくさいし一つずつしかできないので、楽するためにcompose を使っています
+
+    ９：最後にしっかり立ち上がってるか確認する
+        docker ps　で見ればIPとポートがわかるのでその番号にアクセスして表示されるはず。
+
+
+## ３:konwledgeを使用してDBに接続
+
+    １：docker-compose.yml に追記する
+            
+            app:
+                image: koda/docker-knowledge:japanese
+                volumes:
+                        - ./volumes/knowledge:/root/.knowledge
+                restart: always
+
+            database:
+                image: postgres:9
+                volumes:
+                    - ./nginx:/docker-entrypoint-initdb.d
+                    - database:/var/lib/postgresql/data
+                environment:
+                    - POSTGRES_USER=root
+                    - POSTGRES_PASSWORD=password
+                    - POSTGRES_DB=knowledge_production
+
+            app でナレッジ接続します。（ポートは確か5432だった気がします）
+            database でポスグレを用いてのDB接続します。（ポートは8080だった気がします）
+
+            名前：
+                image:何を使うか　app ではナレッジ　ここではSQLやDBなども記述する
+                    　何をマウントしたいかによって変わるので、マウントしたいものの記述方法を調べる
+                volumes: (複数形なので　-（スペース）～　でかきはじめる)
+                    - 現在使用中のPCで動かしているディレクトリとVMでのディレクトリを合わせる
+                    - たとえば、HTMLなら現在使用中PCの保存パスとVM上ではどこにおくか　みたいな考えです。
+                            これがうまくできないとHTML なら表示できません。
+                environment:環境変数設定場所
+
+                ほかにもあるので、わからない場合は調べる。
+
+    ２：confのReBulidをする
+        再度dokcer-compose up -d　をしてできると思います。
+        configが呼ばれるのはビルドするときのため、変えたところが反映されていない。
+
+    ３：確認する
+        ２－９と同じようにポートとIPを使いアクセスしてナレッジにアクセスする
+
+    ４：DBの設定を変える
+        ナレッジ内にあるログインをする
+            admin権限を用います
+
+                ID:admin
+                pass:admin123
+                                です
+            
+            ログインができたら、システム設定内にあるデータベースの接続先変更をクリックする
+
+        設定の変更は
+            URL:jdbc:postgresql://database:5432/[POSTGRES_DBの中身（今回は　knowledge_production です)]
+            user:[POSTGRES_USERの中身（今回はroot）]
+            password:[POSTGRES_PASSWORDの中身 (今回はpassword)]
+            schema：public
+            以下変更なし
+
+        これで記述ミスがなければ動作する
+
+## ４：ローカルからネットワークに移行
+
+    １：サーバを立てる（今回はAWSを使用）
+        サーバの作り方だけ今回は学んだ
+            南方さんがサーバを作っているところで、何をしているかを説明を聞きながらメモを取った。
+
+        AWSはアマゾンが提供しているクラウドサービス
+            ほかにもクラウドサービスは存在する。
+            
+    ２：Open ssh をダウンロード
+        コマンドプロンプトを用いて　choco install OPENSSH で
+        Open sshを取得した。
+        sshは暗号鍵です。
+
+    ３：暗号鍵を作る
+        まず、.sshフォルダを作る。（mkdir でも自力でも）
+        コマンドプロンプトでディレクトリを .ssh にする。
+
+        OpenSshを使って、コマンドで
+        ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa
+        でできるはず。
+
+        できたら　.sshフォルダ　の中に　id_rsa,id_rsa.pubができる
+
+        できた鍵は
+
+        id_rsa :秘密鍵
+        id_rsa.pub:公開鍵
+                            になる。
+
+    ４：configを作る
+
+        configを作成し、中身を
+
+        Host nickname 
+             HostName 54.238.246.101
+             User miyake
+             IdentityFile ~/.ssh/id_rsa
+
+             にする。
+
+        nickname：自由につけられる
+        Hostname：これはサーバを作ってくれて方が教えてくれます
+        User：ユーザー名
+        IdentityFile:秘密鍵ファイルのパス
+
+        拡張子なしのconfigで保存する。
+        保存階層は .ssh フォルダ内にする。
+
+    ５：サーバとsshをつなげる
+        ここは私はしていないのでやり方がわからない
+        暗号方法の設定などを行っていると思います。
+
+    ６：コンテナをサーバに紐付ける
+
+        コマンドプロンプトで
+
+        ssh nickname  (config で作った自由につけたもの)
+        ssh -NL localhost:2374:/var/run/docker.sock nickname &
+        export DOCKER_HOST=localhost:2374
+        export COMPOSE_CONVERT_WINDOWS_PATHS="true" 
+
+
+
+        ここでうまくつがらなくなることがある
+        先に環境変数でdocker-machine env をしている場合邪魔なものがある。
+        DOCKER_TLS_VERIFY：今回SSH で通信するのでTLS 通信をしない
+        DOCKER_CERT_PATH：VERIFY と同様TLS 通信の関連のものなので使わない
+
+        上記二つを環境変数からUNSET （削除）する必要がある
+        コマンド：unset DOCKER_TLS_VERIFY
+
+        これをしてからexport するとうまくいくはず
+
+    ７：確認
+
+        ここまでできたら、HostNameの IP アドレスにアクセスすると
+        ナレッジが出てくるはず。
+
+        出ない場合はサーバとの接続関係がうまくできていない可能性がある。
+        もしかしたら、ナレッジの作成をするときに４０３エラーが出るかもしれませんがそのときは、ナレッジが何か悪さしているようです。
+***
+ここまでが一週間で行ったことです。
+
+ 作成者：三宅　佑太
+ 作成日：10/9
+ 間違いなどございましたら、教えてくださるとうれしいです。
+***
