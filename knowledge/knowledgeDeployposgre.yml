@@ -1,0 +1,41 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: knowledge-posgre
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: knowledge-app-posgre-deploy
+      labels:
+        app: knowledge-app-posgre-deploy
+
+    spec: 
+      containers:
+      - name: knowledge-app-posgre-deploy
+        image: postgres:9
+        ports: 
+          - containerPort: 5432
+        volumeMounts:
+          - mountPath: /var/lib/postgresql/data
+            name: psgre
+      
+        env:
+          - name: POSTGRES_USER
+            value: root
+          - name: POSTGRES_PASSWORD
+            value: password
+          - name: POSTGRES_DB
+            value: knowledge_production
+        
+      volumes: 
+        - name: psgre
+          persistentVolumeClaim:
+            claimName: psgre-volume
+
+     
+      restartPolicy: Always
+
+  selector:
+    matchLabels:
+      app: knowledge-app-posgre-deploy

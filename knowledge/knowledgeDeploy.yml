@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knowledge
+spec:
+  replicas: 1
+  template:
+    metadata: 
+      name: knowledge-app-knowledge
+      labels:
+        app: knowledge-app-knowledge
+
+    spec: 
+      containers:
+      - name:  knowledge-app-knowledge
+        image: koda/docker-knowledge:japanese
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - sh
+                - -c
+                - echo '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><connectionConfig><autocommit>false</autocommit><driverClass>org.postgresql.Driver</driverClass><maxConn>0</maxConn><name>custom</name><password>password</password><schema>public</schema><URL>jdbc:postgresql://knowledge-postgres-service:5432/knowledge_production</URL><user>root</user></connectionConfig>' > /root/.knowledge/custom_connection.xml
+       
+        volumeMounts:
+        - mountPath: /root/.knowledge
+          name: knowvol
+        ports:
+        - containerPort: 8080
+          name: "knowledge-http"
+
+      restartPolicy: Always
+      volumes:
+        - name: knowvol
+          hostPath:
+            path: /home/hoge/knowledge
+            type: DirectoryOrCreate
+  selector:
+    matchLabels:
+      app: knowledge-app-knowledge

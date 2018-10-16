@@ -1,0 +1,18 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: knowledge-ingress
+spec:
+  rules:
+  
+  - http:
+      paths:
+      - path: /
+        backend:
+          serviceName: knowledge-service
+          servicePort: 80
+
+      - path: /knowledge
+        backend:
+          serviceName: knowledge-service
+          servicePort: 443
